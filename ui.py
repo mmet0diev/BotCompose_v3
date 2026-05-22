@@ -1,130 +1,81 @@
-import tkinter as tk
-import threading
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QGridLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 import botcontroller as bc  # Imports the core engine logic
 
-class AppUI():
+class AppUI(QWidget):
     
     def __init__(self) -> None:
-        self.root = tk.Tk()
-        self.root.title("Bot Controller")
+        super().__init__()
+        self.initUI()
+        
+    def initUI(self) -> None:
+        self.setWindowTitle("Bot Controller")
         
         # Adaptive UI sizing based on engine width/height
+        # Heights are reduced since we removed the recording sections
         if bc.width == 1366 and bc.height == 768:
-            self.root.geometry("600x400")
+            self.setFixedSize(600, 250)
         elif bc.width == 1920 and bc.height == 1080:
-            self.root.geometry("900x550")
-            
-        self.root.resizable(False, False)
-        self.root.columnconfigure([0, 1, 2, 3], pad=20)
-        self.root.rowconfigure([0, 1, 2, 3, 4, 5, 6, 7], pad=20)
-
-        # Define widgets
-        bot_label = tk.Label(self.root, text="BOTCOMPOSE", font=("Helvetica", 20), pady=5)
-        screen_res_label = tk.Label(self.root, text=f"Screen Resolution: {bc.get_screen_resolution()}", font=("Helvetica", 12))
-
-        mouse_filepath_entry = tk.Entry(self.root)
-        kb_filepath_entry = tk.Entry(self.root)
-        mouse_rec_btn = tk.Button(self.root, text="rec mouse", pady=5, command=lambda: self.callMouseRec(mouse_filepath_entry.get()))
-        kb_rec_btn = tk.Button(self.root, text="rec kb", pady=5, command=lambda: self.callKbRec(kb_filepath_entry.get()))
-
-        mouse_label1 = tk.Label(self.root, text="Enter output file path. -->")
-        mouse_label2 = tk.Label(self.root, text="Enter number of re-plays -->")
-        kb_label1 = tk.Label(self.root, text="Enter output file path. -->")
-        kb_label2 = tk.Label(self.root, text="Enter number of re-plays -->")
-
-        mouse_play_entry = tk.Entry(self.root, name="1")
-        mouse_play_btn = tk.Button(self.root, text="play mouse", pady=5, command=lambda: self.replay_mouse_btn_clicked(mouse_play_entry))
-        kb_play_entry = tk.Entry(self.root)
-        kb_play_btn = tk.Button(self.root, text="play kb", pady=5, command=lambda: self.replay_kb_btn_clicked(kb_play_entry))
-
-        file_read_label = tk.Label(self.root, text="Read from file ->")
-        file_input_field = tk.Entry(self.root)
-        file_read_btn = tk.Button(self.root, text="Run", pady=5)
-        file_read_btn.configure(command=lambda: bc.read_from_file(file_input_field.get()))
-
-        manual_label = tk.Label(self.root, text="Run commands manually ->")
-        man_input_field = tk.Entry(self.root)
-        man_run_btn = tk.Button(self.root, text="Run", command=lambda: bc.manual_input(man_input_field.get()))
-
-        # Grid-mapping configurations
-        bot_label.grid(row=0, column=0, columnspan=4)
-        screen_res_label.grid(row=1, column=0, columnspan=4)
-
-        mouse_label1.grid(row=2, column=0)
-        mouse_filepath_entry.grid(row=2, column=1)
-        mouse_rec_btn.grid(row=2, column=2)
-        mouse_label2.grid(row=4, column=0)
-        mouse_play_entry.grid(row=4, column=1)
-        mouse_play_btn.grid(row=4, column=2)
-
-        kb_label1.grid(row=3, column=0)
-        kb_filepath_entry.grid(row=3, column=1)
-        kb_rec_btn.grid(row=3, column=2)
-        kb_label2.grid(row=5, column=0)
-        kb_play_entry.grid(row=5, column=1)
-        kb_play_btn.grid(row=5, column=2)
-
-        file_read_label.grid(row=6, column=0)
-        file_input_field.grid(row=6, column=1)
-        file_read_btn.grid(row=6, column=2)
-        manual_label.grid(row=7, column=0)
-        man_input_field.grid(row=7, column=1)
-        man_run_btn.grid(row=7, column=2)
-
-        self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_columnconfigure(4, weight=1)
-        bot_label.grid_configure(sticky="nsew")
-
-        self.root.mainloop()
-
-    def replay_mouse_btn_clicked(self, entry):
-        value = entry.get()
-        if value:
-            try:
-                reps = int(value)
-                execution_thread = threading.Thread(target=lambda: bc.replay_mouse(reps))
-                execution_thread.start()
-            except ValueError:
-                print("Invalid input. Please enter a valid integer.")
+            self.setFixedSize(800, 320)
         else:
-            execution_thread = threading.Thread(target=bc.bc.bot.play_mouse)
-            execution_thread.start()
+            self.setFixedSize(700, 280)  # Safe default dimension
 
-    def replay_kb_btn_clicked(self, entry):
-        value = entry.get()
-        if value:
-            try:
-                reps = int(value)
-                execution_thread = threading.Thread(target=lambda: bc.replay_kb(reps))
-                execution_thread.start()
-            except ValueError:
-                print("Invalid input. Please enter a valid integer.")
-        else:
-            execution_thread = threading.Thread(target=bc.bot.play_kb)
-            execution_thread.start()
+        # Layout Setup
+        grid = QGridLayout()
+        grid.setSpacing(15)
+        grid.setContentsMargins(20, 20, 20, 20)
+        self.setLayout(grid)
 
-    def callMouseRec(self, entry):
-        def execute_commands():
-            if entry == "":
-                bc.bot.rec_mouse()
-            else:
-                bc.bot.rec_mouse(entry)
+        # 1. Main Header Label
+        bot_label = QLabel("BOTCOMPOSE", self)
+        bot_label.setFont(QFont("Helvetica", 20))
+        bot_label.setAlignment(Qt.AlignCenter)
+        # span 1 row across 3 columns
+        grid.addWidget(bot_label, 0, 0, 1, 3)
 
-        execution_thread = threading.Thread(target=execute_commands)
-        execution_thread.start()
+        # 2. Screen Resolution Label
+        screen_res_label = QLabel(f"Screen Resolution: {bc.get_screen_resolution()}", self)
+        screen_res_label.setFont(QFont("Helvetica", 12))
+        screen_res_label.setAlignment(Qt.AlignCenter)
+        grid.addWidget(screen_res_label, 1, 0, 1, 3)
 
-    def callKbRec(self, entry):
-        def execute_commands():
-            if entry == "":
-                bc.bot.rec_kb()
-            else:
-                bc.bot.rec_kb(entry)
+        # 3. File Read Row
+        file_read_label = QLabel("Read from file ->", self)
+        self.file_input_field = QLineEdit(self)
+        self.file_input_field.setPlaceholderText("Enter file path...")
+        
+        file_read_btn = QPushButton("Run", self)
+        file_read_btn.clicked.connect(lambda: bc.read_from_file(self.file_input_field.text()))
+        
+        grid.addWidget(file_read_label, 2, 0)
+        grid.addWidget(self.file_input_field, 2, 1)
+        grid.addWidget(file_read_btn, 2, 2)
 
-        execution_thread = threading.Thread(target=execute_commands)
-        execution_thread.start()
+        # 4. Manual Input Row
+        manual_label = QLabel("Run commands manually ->", self)
+        self.man_input_field = QLineEdit(self)
+        self.man_input_field.setPlaceholderText("e.g., mv 500 500")
+        
+        man_run_btn = QPushButton("Run", self)
+        man_run_btn.clicked.connect(lambda: bc.manual_input(self.man_input_field.text()))
+        
+        grid.addWidget(manual_label, 3, 0)
+        grid.addWidget(self.man_input_field, 3, 1)
+        grid.addWidget(man_run_btn, 3, 2)
+
+        # Distribute column stretching weights evenly across layout
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 2)
+        grid.setColumnStretch(2, 1)
+
 
 def run():
-    app = AppUI()
+    app = QApplication(sys.argv)
+    ui = AppUI()
+    ui.show()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     run()
