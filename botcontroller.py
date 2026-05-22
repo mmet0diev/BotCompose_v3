@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+import time
 from screeninfo import get_monitors
 from Models.Bot import Bot
 
@@ -13,19 +14,36 @@ def get_screen_resolution():
 
 bot = Bot()
 
+# Global flag to track active runs across threads safely
+is_running = False
+
 def read_from_file(src_path: str):
-    # "Press 'esc' to stop command(s) execution.
+    global is_running
+    is_running = True
+
+    def check_interrupt():
+        """Helper to quickly check keypress status without locking up."""
+        global is_running
+        if not is_running or bot.kb.check_key_pressed("esc"):
+            is_running = False
+            return True
+        return False
+
     def execute_commands():
+        global is_running
         try:
             with open(src_path, "r") as f:
                 for line in f:
-                    if bot.kb.check_key_pressed("esc"):
-                        print("Execution stopped.")
+                    # Check interrupt immediately at loop step
+                    if check_interrupt():
+                        print("Execution stopped by user.")
                         break
-                    if line != "":
+                        
+                    if line.strip() != "":
                         command = line.strip().split(" ")
                         func = command[0]
                         args = command[1:]
+                        
                         match func:
                             case "mv":
                                 x, y = map(float, args)
@@ -44,60 +62,47 @@ def read_from_file(src_path: str):
                                 key = args[0]
                                 bot.press(key)
                             case "hld":
-                                comp = args[0]
-                                btn = args[1]
+                                comp, btn = args[0], args[1]
                                 if comp == 'mouse':
                                     bot.mouse_hld(btn=btn)
                                 elif comp == 'kb':
                                     bot.kb_hld(btn=btn)
                             case "rel":
-                                comp = args[0]
-                                btn = args[1]
+                                comp, btn = args[0], args[1]
                                 if comp == 'mouse':
                                     bot.mouse_rel(btn=btn)
                                 elif comp == 'kb':
                                     bot.kb_rel(btn=btn)
                             case "clckimg":
                                 if len(args) == 1:
-                                    img_path = args[0]
-                                    bot.clckimg(img_path)
+                                    bot.clckimg(args[0])
                                 elif len(args) == 2:
-                                    img_path = args[0]
-                                    btn = args[1]
-                                    bot.clckimg(img_path, btn=btn)
+                                    bot.clckimg(args[0], btn=args[1])
                                 elif len(args) == 3:
-                                    img_path = args[0]
-                                    btn = args[1]
-                                    conf = float(args[2])
-                                    bot.clckimg(img_path, btn=btn, conf=conf)
+                                    bot.clckimg(args[0], btn=args[1], conf=float(args[2]))
                             case "drag":
-                                if (len(args) == 4):
-                                    x1 = int(args[0])
-                                    y1 = int(args[1])
-                                    x2 = int(args[2])
-                                    y2 = int(args[3])
+                                if len(args) == 4:
+                                    x1, y1, x2, y2 = map(int, args)
                                     bot.drag(x1, y1, x2, y2)
-                                elif (len(args) == 5):
-                                    x1 = int(args[0])
-                                    y1 = int(args[1])
-                                    x2 = int(args[2])
-                                    y2 = int(args[3])
-                                    dur = int(args[4])
-                                    bot.drag(x1, y1, x2, y2, dur)
-                                else:
-                                    print("Invalid arguments passed.")
+                                elif len(args) == 5:
+                                    x1, y1, x2, y2 = map(int, args[:4])
+                                    bot.drag(x1, y1, x2, y2, int(args[4]))
                             case "wrt":
-                                text = " ".join(args)
-                                bot.wrt(text)
+                                bot.wrt(" ".join(args))
                             case "sleep":
                                 secs = float(args[0])
-                                bot.sleep(secs)
+                                # Instead of locking up the engine block for seconds,
+                                # we slice sleep into 100ms intervals to continuously check for 'esc'
+                                steps = int(secs / 0.1)
+                                for _ in range(steps):
+                                    if check_interrupt():
+                                        break
+                                    time.sleep(0.1)
                             case "shoot":
                                 if len(args) == 0:
                                     bot.take_shot()
                                 elif len(args) == 1:
-                                    d = float(args[0])
-                                    bot.take_shot(delay=d)
+                                    bot.take_shot(delay=float(args[0]))
                             case "play":
                                 if args[0] == "mouse":
                                     bot.play_mouse()
@@ -108,21 +113,23 @@ def read_from_file(src_path: str):
                                 next_lines = int(args[1])
                                 bot.repeat_lines(f=f, reps=reps, n_lines=next_lines)
                             case _:
-                                print(f"Invalid command(s)/syntax: {func}")
-                    else:
-                        print("Empty line")
-                f.close()
+                                print(f"Invalid command/syntax: {func}")
+                                
+                    # One secondary safety check directly after action processing
+                    if check_interrupt():
+                        print("Execution stopped.")
+                        break
         except FileNotFoundError:
             print(f"File not found: {src_path}")
         except Exception as e:
-            print(f"Invalid command(s)/syntax or file:\n{e}")
+            print(f"Invalid command or syntax error:\n{e}")
+        finally:
+            is_running = False
 
-    # Create and start a new thread for executing commands
-    execution_thread = threading.Thread(target=execute_commands)
+    execution_thread = threading.Thread(target=execute_commands, daemon=True)
     execution_thread.start()
 
 
-# Manually issue commands from the terminal(similar to REPL / interactive mode)
 def manual_input(cmd: str):
     def execute_commands():
         cmds = cmd.strip().split(" ")
@@ -134,100 +141,59 @@ def manual_input(cmd: str):
                     x, y = map(float, args)
                     bot.mv(x, y)
                 case "clck":
-                    btn = args[0]
-                    bot.clck(btn)
+                    bot.clck(args[0])
                 case "mvclck":
                     x, y = map(float, args[:2])
-                    btn = args[2]
-                    bot.mvclck(x, y, btn)
+                    bot.mvclck(x, y, args[2])
                 case "scroll":
-                    n = int(args[0])
-                    bot.scroll(n)
+                    bot.scroll(int(args[0]))
                 case "press":
-                    btn = args[0]
-                    bot.press(btn=btn)
+                    bot.press(btn=args[0])
                 case "hld":
-                    comp = args[0]
-                    btn = args[1]
-                    if comp == 'mouse':
-                        bot.mouse_hld(btn=btn)
-                    elif comp == 'kb':
-                        bot.kb_hld(btn=btn)
+                    comp, btn = args[0], args[1]
+                    if comp == 'mouse': bot.mouse_hld(btn=btn)
+                    elif comp == 'kb': bot.kb_hld(btn=btn)
                 case "rel":
-                    comp = args[0]
-                    btn = args[1]
-                    if comp == 'mouse':
-                        bot.mouse_rel(btn=btn)
-                    elif comp == 'kb':
-                        bot.kb_rel(btn=btn)
+                    comp, btn = args[0], args[1]
+                    if comp == 'mouse': bot.mouse_rel(btn=btn)
+                    elif comp == 'kb': bot.kb_rel(btn=btn)
                 case "clckimg":
-                    if len(args) == 1:
-                        img_path = args[0]
-                        bot.clckimg(img_path)
-                    elif len(args) == 2:
-                        img_path = args[0]
-                        btn = args[1]
-                        bot.clckimg(img_path, btn=btn)
-                    elif len(args) == 3:
-                        img_path = args[0]
-                        btn = args[1]
-                        conf = float(args[2])
-                        bot.clckimg(img_path, btn=btn, conf=conf)
+                    if len(args) == 1: bot.clckimg(args[0])
+                    elif len(args) == 2: bot.clckimg(args[0], btn=args[1])
+                    elif len(args) == 3: bot.clckimg(args[0], btn=args[1], conf=float(args[2]))
                 case "drag":
-                    if (len(args) == 4):
-                        x1 = int(args[0])
-                        y1 = int(args[1])
-                        x2 = int(args[2])
-                        y2 = int(args[3])
-                        bot.drag(x1, y1, x2, y2)
-                    elif (len(args) == 5):
-                        x1 = int(args[0])
-                        y1 = int(args[1])
-                        x2 = int(args[2])
-                        y2 = int(args[3])
-                        dur = int(args[4])
-                        bot.drag(x1, y1, x2, y2, dur)
-                    else:
-                        print("Invalid arguments passed.")
+                    if len(args) == 4:
+                        bot.drag(*map(int, args))
+                    elif len(args) == 5:
+                        bot.drag(*map(int, args[:4]), int(args[4]))
                 case "wrt":
-                    text = " ".join(args)
-                    bot.wrt(text)
+                    bot.wrt(" ".join(args))
                 case "sleep":
-                    if len(args) == 0:
-                        bot.sleep()
-                    elif len(args) == 1:
-                        secs = args[0]
-                        bot.sleep(secs=secs)
+                    secs = float(args[0]) if len(args) > 0 else 1.0
+                    time.sleep(secs)
                 case "shoot":
-                    if len(args) == 0:
-                        bot.take_shot()
-                    elif len(args) == 1:
-                        d = float(args[0])
-                        bot.take_shot(delay=d)
+                    if len(args) == 0: bot.take_shot()
+                    elif len(args) == 1: bot.take_shot(delay=float(args[0]))
                 case "play":
-                    if args[0] == "mouse":
-                        bot.play_mouse()
-                    elif args[0] == "kb":
-                        bot.play_kb()
+                    if args[0] == "mouse": bot.play_mouse()
+                    elif args[0] == "kb": bot.play_kb()
                 case "repeat":
                     if len(args) > 0:
-                        reps = int(args[0])
-                        bot.repeat_man(command=cmds[2:], reps=reps)
-                    else:
-                        print("Invalid number of args.")
+                        bot.repeat_man(command=cmds[2:], reps=int(args[0]))
                 case _:
-                    print(f"Invalid command/syntax: {func}")
+                    print(f"Invalid command: {func}")
         except Exception as e:
             print(e)
             
-    # Create and start a new thread for executing commands
-    execution_thread = threading.Thread(target=execute_commands)
+    execution_thread = threading.Thread(target=execute_commands, daemon=True)
     execution_thread.start()
 
-def replay_mouse(reps = 1):
-    for i in range(reps):
+def replay_mouse(reps=1):
+    for _ in range(reps):
+        if not is_running: break
         bot.play_mouse()
 
-def replay_kb(reps = 1):
-    for i in range(reps):
+def replay_kb(reps=1):
+    for _ in range(reps):
+        if not is_running: break
         bot.play_kb()

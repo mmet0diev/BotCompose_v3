@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButto
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import botcontroller as bc  # Imports the core engine logic
+from terminal import EmbeddedTerminal  # Imports our new terminal emulator module
 
 class AppUI(QWidget):
     
@@ -13,14 +14,13 @@ class AppUI(QWidget):
     def initUI(self) -> None:
         self.setWindowTitle("Bot Controller")
         
-        # Adaptive UI sizing based on engine width/height
-        # Heights are reduced since we removed the recording sections
+        # Expanded geometry limits to fit terminal viewer neatly beneath controls
         if bc.width == 1366 and bc.height == 768:
-            self.setFixedSize(600, 250)
+            self.setFixedSize(650, 520)
         elif bc.width == 1920 and bc.height == 1080:
-            self.setFixedSize(800, 320)
+            self.setFixedSize(850, 620)
         else:
-            self.setFixedSize(700, 280)  # Safe default dimension
+            self.setFixedSize(750, 560)
 
         # Layout Setup
         grid = QGridLayout()
@@ -32,7 +32,6 @@ class AppUI(QWidget):
         bot_label = QLabel("BOTCOMPOSE", self)
         bot_label.setFont(QFont("Helvetica", 20))
         bot_label.setAlignment(Qt.AlignCenter)
-        # span 1 row across 3 columns
         grid.addWidget(bot_label, 0, 0, 1, 3)
 
         # 2. Screen Resolution Label
@@ -65,10 +64,16 @@ class AppUI(QWidget):
         grid.addWidget(self.man_input_field, 3, 1)
         grid.addWidget(man_run_btn, 3, 2)
 
-        # Distribute column stretching weights evenly across layout
+        # 5. Integrated Interactive Terminal Console Emulator Row
+        # Added at row index 4, spanning across all 3 grid columns
+        self.terminal_widget = EmbeddedTerminal(self)
+        grid.addWidget(self.terminal_widget, 4, 0, 1, 3)
+
+        # Layout sizing stretch distributions 
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 2)
         grid.setColumnStretch(2, 1)
+        grid.setRowStretch(4, 5) # Gives the terminal window larger vertical priority layout mapping
 
 
 def run():
