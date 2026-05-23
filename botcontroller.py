@@ -188,12 +188,12 @@ def manual_input(cmd: str):
     execution_thread = threading.Thread(target=execute_commands, daemon=True)
     execution_thread.start()
 
-def replay_mouse(reps=1):
-    for _ in range(reps):
-        if not is_running: break
-        bot.play_mouse()
+# def replay_mouse(reps=1):
+#     for _ in range(reps):
+#         if not is_running: break
+#         bot.play_mouse()
 
-def replay_kb(reps=1):
-    for _ in range(reps):
-        if not is_running: break
-        bot.play_kb()
+# def replay_kb(reps=1):
+#     for _ in range(reps):
+#         if not is_running: break
+#         bot.play_kb()
