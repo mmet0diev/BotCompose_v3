@@ -1,8 +1,9 @@
 import time
 import os
 import pyautogui as pag
+# Move the mouse quickly to hit an edge of the screen to stop it
 pag.FAILSAFE = True      # Enables the upper-left corner slam shutdown switch
-pag.PAUSE = 0.15          # Adds a mandatory 150ms processing pause after EVERY movement step
+# pag.PAUSE = 0.15          # Adds a mandatory 150ms processing pause after EVERY movement step
 
 class Mouse:
 

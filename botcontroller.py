@@ -21,6 +21,7 @@ def read_from_file(src_path: str):
     global is_running
     is_running = True
 
+    # Should stop execution, but the pyautogui module does not have a function which detects a pressed key.
     def check_interrupt():
         """Helper to quickly check keypress status without locking up."""
         global is_running
@@ -35,9 +36,9 @@ def read_from_file(src_path: str):
             with open(src_path, "r") as f:
                 for line in f:
                     # Check interrupt immediately at loop step
-                    if check_interrupt():
-                        print("Execution stopped by user.")
-                        break
+                    # if check_interrupt():
+                    #     print("Execution stopped by user.")
+                    #     break
                         
                     if line.strip() != "":
                         command = line.strip().split(" ")
@@ -94,10 +95,10 @@ def read_from_file(src_path: str):
                                 # Instead of locking up the engine block for seconds,
                                 # we slice sleep into 100ms intervals to continuously check for 'esc'
                                 steps = int(secs / 0.1)
-                                for _ in range(steps):
-                                    if check_interrupt():
-                                        break
-                                    time.sleep(0.1)
+                                # for _ in range(steps):
+                                #     if check_interrupt():
+                                #         break
+                                #     time.sleep(0.1)
                             case "shoot":
                                 if len(args) == 0:
                                     bot.take_shot()
@@ -116,9 +117,9 @@ def read_from_file(src_path: str):
                                 print(f"Invalid command/syntax: {func}")
                                 
                     # One secondary safety check directly after action processing
-                    if check_interrupt():
-                        print("Execution stopped.")
-                        break
+                    # if check_interrupt():
+                    #     print("Execution stopped.")
+                    #     break
         except FileNotFoundError:
             print(f"File not found: {src_path}")
         except Exception as e:
