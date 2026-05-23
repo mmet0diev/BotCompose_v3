@@ -1,2 +1,2 @@
 sleep 3
-press esc
+mvclck 150 150 l

@@ -55,7 +55,7 @@ def read_from_file(src_path: str):
                     try:
                         match func:
                             case "mv":
-                                x, y = map(float, args)
+                                x, y = map(int, args)
                                 print(f"mouse moved: {x},{y}")
                                 bot.mv(x, y)
                             case "clck":
@@ -63,7 +63,7 @@ def read_from_file(src_path: str):
                                 print(f"mouse btn clicked: {btn}")
                                 bot.clck(btn)
                             case "mvclck":
-                                x, y = map(float, args[:2])
+                                x, y = map(int, args[:2])
                                 btn = args[2]
                                 print(f"mouse moved {x},{y} and btn clicked: {btn}")
                                 bot.mvclck(x, y, btn)
@@ -189,14 +189,14 @@ def manual_input(cmd: str):
             try:
                 match func:
                     case "mv":
-                        x, y = map(float, args)
+                        x, y = map(int, args)
                         print(f"mouse moved: {x},{y}")
                         bot.mv(x, y)
                     case "clck":
                         print(f'mouse btn clicked: {args[0]}')
                         bot.clck(args[0])
                     case "mvclck":
-                        x, y = map(float, args[:2])
+                        x, y = map(int, args[:2])
                         print(f'mouse moved {x},{y} and btn clicked: {args[2]}')
                         bot.mvclck(x, y, args[2])
                     case "scroll":
