@@ -6,7 +6,7 @@ from screeninfo import get_monitors
 from Models.Bot import Bot
 import pyautogui as pag
 
-monitor = get_monitors()[0]  # Assuming the first monitor
+monitor = get_monitors()[0]
 width = monitor.width
 height = monitor.height
 
@@ -15,7 +15,9 @@ def get_screen_resolution():
 
 bot = Bot()
 
-# Global flag to track active runs across threads safely
+# This variable can now be reassigned dynamically by your UI button!
+stop_key = "esc" 
+
 is_running = False
 
 def read_from_file(src_path: str):
@@ -23,9 +25,9 @@ def read_from_file(src_path: str):
     is_running = True
 
     def check_interrupt():
-        """Helper to quickly check keypress status without locking up."""
-        global is_running
-        if not is_running or bot.kb.check_key_pressed("esc"):
+        """Helper to quickly check keypress status using dynamic variable."""
+        global is_running, stop_key
+        if not is_running or bot.kb.check_key_pressed(stop_key):
             is_running = False
             return True
         return False
@@ -43,7 +45,7 @@ def read_from_file(src_path: str):
                     if not clean_line or clean_line.startswith("#"):
                         continue
 
-                    # Intercept loop steps cleanly
+                    # Intercept loop steps cleanly before executing line
                     if check_interrupt():
                         print("Execution stopped by user.")
                         break
@@ -55,7 +57,7 @@ def read_from_file(src_path: str):
                     try:
                         match func:
                             case "mv":
-                                x, y = map(int, args)
+                                x, y = map(float, args)
                                 print(f"mouse moved: {x},{y}")
                                 bot.mv(x, y)
                             case "clck":
@@ -63,7 +65,7 @@ def read_from_file(src_path: str):
                                 print(f"mouse btn clicked: {btn}")
                                 bot.clck(btn)
                             case "mvclck":
-                                x, y = map(int, args[:2])
+                                x, y = map(float, args[:2])
                                 btn = args[2]
                                 print(f"mouse moved {x},{y} and btn clicked: {btn}")
                                 bot.mvclck(x, y, btn)
@@ -116,7 +118,13 @@ def read_from_file(src_path: str):
                             case "sleep":
                                 seconds = float(args[0])
                                 print(f"sleeping for {seconds} seconds...", flush=True)
-                                bot.sleep(secs=seconds)
+                                
+                                # Dynamic Micro-Step Pause: Allows manual/file tasks to catch stop keys mid-sleep!
+                                steps = int(seconds / 0.1)
+                                for _ in range(steps):
+                                    if check_interrupt():
+                                        break
+                                    time.sleep(0.1)
                             case "shoot":
                                 print("screen shot")
                                 if len(args) == 0:
@@ -127,17 +135,18 @@ def read_from_file(src_path: str):
                                 reps = int(args[0])
                                 next_lines = int(args[1])
                                 print(f"repeating next {next_lines} lines for {reps} cycles")
-                                bot.repeat_lines(f=f, reps=reps, n_lines=next_lines)
+                                # Forward the dynamic string variable
+                                bot.repeat_lines(f=f, reps=reps, n_lines=next_lines, stop_trigger=stop_key)
                             case _:
                                 continue
                                 
+                        # Secondary inline safety check immediately following action steps
                         if check_interrupt():
                             print("Execution stopped.")
                             break
 
                     except pag.FailSafeException:
                         raise pag.FailSafeException
-                        
                     except Exception as e:
                         print(f"[ERROR] Line skipped in '{func}': {e}")
                         continue
@@ -158,20 +167,19 @@ def read_from_file(src_path: str):
 def manual_input(cmd: str):
     global is_running
     is_running = True
-    print("Executing manual commands:\n")
+    print("Executing manual commands:")
 
     def check_interrupt():
-        global is_running
-        if not is_running or bot.kb.check_key_pressed("esc"):
+        global is_running, stop_key
+        if not is_running or bot.kb.check_key_pressed(stop_key):
             is_running = False
             return True
         return False
 
     def execute_commands():
-        global is_running
+        global is_running, stop_key
         clean_cmd = cmd.strip()
         
-        # 1. Instantly skip empty entries or text comments
         if not clean_cmd or clean_cmd.startswith("#"):
             is_running = False
             return
@@ -243,7 +251,14 @@ def manual_input(cmd: str):
                     case "sleep":
                         seconds = float(args[0]) if len(args) > 0 else 1.0
                         print(f"sleeping for {seconds} seconds...", flush=True)
-                        bot.sleep(secs=seconds)
+                        
+                        # Dynamic Micro-Step Pause for manual input mode
+                        steps = int(seconds / 0.1)
+                        for _ in range(steps):
+                            if check_interrupt():
+                                print("Manual sleep sequence stopped by user.")
+                                break
+                            time.sleep(0.1)
                     case "shoot":
                         print("screen shot")
                         if len(args) == 0: bot.take_shot()
@@ -252,10 +267,15 @@ def manual_input(cmd: str):
                         if len(args) > 0:
                             reps = int(args[0])
                             print(f"repeating sequence command manual entry {reps} times")
-                            bot.repeat_man(command=cmds[2:], reps=reps)
+                            # Forward the dynamic string variable
+                            bot.repeat_man(command=cmds[2:], reps=reps, stop_trigger=stop_key)
                     case _:
                         pass
                         
+                # Check right after single-shot manual actions finish running
+                if check_interrupt():
+                    print("Manual execution dropped.")
+
             except pag.FailSafeException:
                 raise pag.FailSafeException
             except Exception as e:

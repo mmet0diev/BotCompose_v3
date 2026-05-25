@@ -49,25 +49,23 @@ class Keyboard:
             for evs in self.events:
                 f.write(f"{evs}\n")
 
-    # Stop recording the keyboard events
-    def stop_recording(self, hook_ref):
-        # Use a non-blocking poll loop instead of kb.wait() so the thread stays alive
-        while not kb.is_pressed('esc'):
+    # Stop recording the keyboard events (Updated to accept dynamic stop key)
+    def stop_recording(self, hook_ref, stop_trigger="esc"):
+        # Checks the chosen custom stop trigger key dynamically instead of 'esc' string literal
+        while not kb.is_pressed(stop_trigger):
             time.sleep(0.05)
-        # Unhook only our specific listener instead of ruining all global hotkeys
         kb.unhook(hook_ref)
 
-    # Record the keyboard events
-    def record(self):
+    # Record the keyboard events (Updated to accept dynamic stop key)
+    def record(self, stop_trigger="esc"):
         self.events = []
         self.clear_file()
         
-        print("Recording started. Press 'ESC' to stop...")
-        # kb.hook returns a reference pointer to our specific event listener hook
+        print(f"Recording started. Press '{stop_trigger.upper()}' to stop...")
         hook_ref = kb.hook(self.events.append)
         
-        # Pass that reference to be unhooked safely when ESC is hit
-        self.stop_recording(hook_ref)
+        # Pass the dynamic key to the poll loop
+        self.stop_recording(hook_ref, stop_trigger)
         
         print("Recording finished.")
         self.write_to_file()
@@ -77,7 +75,7 @@ class Keyboard:
         time.sleep(1)
         kb.play(self.events)
 
-    # Check if a key is pressed
+    # Check if a key is pressed (PERFECT AS IS - Handles variables cleanly!)
     def check_key_pressed(self, key: str):
         if kb.is_pressed(key):
             return True

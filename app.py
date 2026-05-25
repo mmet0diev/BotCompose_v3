@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import botcontroller as bc  # Imports the core engine logic
 from terminal import LogTerminal  # Imports our logging terminal widget
+import keyboard as kb  # Import the kernel-level listener module for binding
 
 class AppUI(QWidget):
     
@@ -32,13 +33,23 @@ class AppUI(QWidget):
         bot_label = QLabel("BOTCOMPOSE", self)
         bot_label.setFont(QFont("Helvetica", 20))
         bot_label.setAlignment(Qt.AlignCenter)
-        grid.addWidget(bot_label, 0, 0, 1, 3)
+        grid.addWidget(bot_label, 0, 0, 1, 3) # Spans completely from col 0 to col 2
 
         # 2. Screen Resolution Label
         screen_res_label = QLabel(f"Screen Resolution: {bc.get_screen_resolution()}", self)
         screen_res_label.setFont(QFont("Helvetica", 12))
         screen_res_label.setAlignment(Qt.AlignCenter)
-        grid.addWidget(screen_res_label, 1, 0, 1, 3)
+        # FIX: We let the label span across ALL 3 columns just like the title, 
+        # meaning its text alignment will perfectly mirror "BOTCOMPOSE".
+        grid.addWidget(screen_res_label, 1, 0, 1, 3) 
+
+        # Dynamic Stop Key Reassignment Button
+        self.set_stop_btn = QPushButton(f"Stop Key: {bc.stop_key.upper()}", self)
+        self.set_stop_btn.clicked.connect(self.change_stop_key)
+        # FIX: We move the button down to row 1, column 2. 
+        # Because the resolution label is transparently layered underneath it across the row, 
+        # the button will sit neatly on the right side without squeezing the text over!
+        grid.addWidget(self.set_stop_btn, 1, 2)
 
         # 3. File Read Row
         file_read_label = QLabel("Read from file ->", self)
@@ -74,6 +85,32 @@ class AppUI(QWidget):
         grid.setColumnStretch(1, 2)
         grid.setColumnStretch(2, 1)
         grid.setRowStretch(4, 5)
+
+    def change_stop_key(self) -> None:
+        """Asynchronously waits for the next global keypress to change the termination hotkey."""
+        self.set_stop_btn.setText("Press any key...")
+        self.set_stop_btn.setEnabled(False)
+        
+        # We declare hook_ref as global or nonlocal so our inner function can see it
+        hook_ref = None
+
+        def capture_next_key(event):
+            nonlocal hook_ref
+            
+            # 1. Update the stop key string directly inside the botcontroller module memory
+            bc.stop_key = event.name
+            
+            # 2. Update the layout text to reflect the uppercase key token name
+            self.set_stop_btn.setText(f"Stop Key: {event.name.upper()}")
+            self.set_stop_btn.setEnabled(True)
+            
+            # 3. CRITICAL FIX: Cleanly unhook ONLY this specific listener
+            if hook_ref is not None:
+                kb.unhook(hook_ref)
+
+        # kb.on_press returns a reference handle to this specific hook instance. 
+        # We save it so we can safely remove it inside the callback itself!
+        hook_ref = kb.on_press(capture_next_key)
 
 
 def run():

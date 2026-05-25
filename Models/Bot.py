@@ -41,15 +41,12 @@ class Bot:
 
 
     # Mouse controls:
-    # More of a testing function
     def getPos(self):
         self.m.getPos()
 
     # Move the mouse to xy
     def mv(self, x: int, y: int, dur=0):
-        # print("mv called")
         self.m.mv(x=x, y=y, dur=dur)
-
 
     # Click a left, right, middle(scroll) mouse btn
     def clck(self, btn: str):
@@ -75,7 +72,7 @@ class Bot:
     def mouse_rel(self, btn: str):
         self.m.rel(btn=btn)
 
-    # Click imgage function (from Mouse)
+    # Click image function (from Mouse)
     def clckimg(self, img: str, btn="l", conf=0.6):
         self.m.clck_img(img=img, btn=btn, conf=conf)
 
@@ -88,7 +85,6 @@ class Bot:
         self.kb.rel(btn=btn)
 
     # Keyboard controls:
-    # Press a key/btn
     def press(self, btn: str):
         self.kb.press(btn=btn)
 
@@ -100,8 +96,8 @@ class Bot:
     def sleep(self, secs=2.0):
         time.sleep(secs)
 
-    # File mode repeat
-    def repeat_lines(self, f, reps, n_lines):
+    # File mode repeat (Updated to check custom dynamic stop triggers)
+    def repeat_lines(self, f, reps, n_lines, stop_trigger="esc"):
         commands = []  # initialize the repeated commands list
         for i in range(n_lines):  # read the next n lines of commands
             line = next(f).strip()  # read the current line as str
@@ -109,10 +105,13 @@ class Bot:
             func = cmd[0]
             args = cmd[1:]
             commands.append((func, args))
+            
         for j in range(reps):  # repeat the commands reps times
-            if self.kb.check_key_pressed("esc"):
-                print("Execution stopped.")
+            # DYNAMIC UPDATE: Use stop_trigger variable instead of hardcoded string literal
+            if self.kb.check_key_pressed(stop_trigger):
+                print(f"[STOP] Loop sequence interrupted via key '{stop_trigger.upper()}'.")
                 break
+                
             for func, args in commands:
                 match func:
                     case "mv":
@@ -134,22 +133,17 @@ class Bot:
                     case "hld":
                         comp = args[0]
                         if comp == "mouse":
-                            key = args[0]
                             btn = args[1]
                             self.mouse_hld(btn=btn)
                         if comp == "kb":
-                            key = args[0]
                             btn = args[1]
                             self.kb_hld(btn=btn)
                     case "rel":
                         comp = args[0]
                         btn = args[1]
                         if comp == "mouse":
-                            key = args[0]
                             self.mouse_rel(btn=btn)
                         if comp == "kb":
-                            key = args[0]
-                            btn = args[1]
                             self.kb.rel(btn=btn)
                     case "wrt":
                         text = " ".join(args)
@@ -158,61 +152,38 @@ class Bot:
                         secs = float(args[0])
                         self.sleep(secs)
                     case "drag":
-                        if(len(args) == 4):
-                            x1 = int(args[0])
-                            y1 = int(args[1])
-                            x2 = int(args[2])
-                            y2 = int(args[3])
-                            self.drag(x1, y1, x2, y2)
-                        elif(len(args) == 5):
-                            x1 = int(args[0])
-                            y1 = int(args[1])
-                            x2 = int(args[2])
-                            y2 = int(args[3])
-                            dur = int(args[4])
-                            self.drag(x1, y1, x2, y2, dur)
-                        else:
-                            print("Invalid arguments passed.")
+                        if len(args) == 4:
+                            self.drag(int(args[0]), int(args[1]), int(args[2]), int(args[3]))
+                        elif len(args) == 5:
+                            self.drag(int(args[0]), int(args[1]), int(args[2]), int(args[3]), int(args[4]))
                     case "clckimg":
                         if len(args) == 1:
-                            img_path = args[0]
-                            self.clckimg(img_path)
+                            self.clckimg(args[0])
                         elif len(args) == 2:
-                            img_path = args[0]
-                            btn = args[1]
-                            self.clckimg(img_path, btn=btn)
+                            self.clckimg(args[0], btn=args[1])
                         elif len(args) == 3:
-                            img_path = args[0]
-                            btn = args[1]
-                            conf = float(args[2])
-                            self.clckimg(img_path, btn=btn, conf=conf)
+                            self.clckimg(args[0], btn=args[1], conf=float(args[2]))
                     case "shoot":
                         self.take_shot()
-                    case "play":
-                        if args[0] == "mouse":
-                            self.play_mouse()
-                        elif args[0] == "kb":
-                            self.play_kb()
-                    case "repeat":
-                        print("Cannot nest repeats")
                     case _:
-                        print(f"Invalid command(s)/syntax: {func}")
+                        print(f"Invalid nested loop command: {func}")
 
-    # Manual mode repeat (more of a testing function)
-    def repeat_man(self, command: list, reps: int = 2):
+    # Manual mode repeat (Updated to check custom dynamic stop triggers)
+    def repeat_man(self, command: list, reps: int = 2, stop_trigger="esc"):
         time.sleep(1)
         parts = command[1:]
         for i in range(reps):
             index = 0
-            if self.kb.check_key_pressed("esc"):
-                print("Execution stopped.")
+            # DYNAMIC UPDATE: Use stop_trigger variable instead of hardcoded string literal
+            if self.kb.check_key_pressed(stop_trigger):
+                print(f"[STOP] Manual loop sequence interrupted via key '{stop_trigger.upper()}'.")
                 break
+                
             while index < len(parts):
                 cmd = command[index]
                 if cmd == "mv":
-                    coords = (parts[index], parts[index+1])
-                    x = float(coords[0])
-                    y = float(coords[1])
+                    x = float(parts[index])
+                    y = float(parts[index+1])
                     self.mv(x=x, y=y)
                     index += 3
                 elif cmd == "clck":
@@ -220,9 +191,8 @@ class Bot:
                     self.clck(btn=btn)
                     index += 2
                 elif cmd == "mvclck":
-                    coords = (parts[index], parts[index + 1])
-                    x = float(coords[0])
-                    y = float(coords[1])
+                    x = float(parts[index])
+                    y = float(parts[index + 1])
                     btn = parts[index + 2]
                     self.mvclck(x=x, y=y, btn=btn)
                     index += 4
@@ -236,7 +206,7 @@ class Bot:
                     index += 2
                 elif cmd == "hld":
                     comp = parts[index]
-                    if (comp == "mouse"):
+                    if comp == "mouse":
                         key = parts[index + 1]
                         self.mouse_hld(key)
                         index += 3
@@ -245,71 +215,46 @@ class Bot:
                         self.kb_hld(key)
                         index += 2
                 elif cmd == "drag":
-                    if(len(parts) == 4):
-                        x1 = int(parts[0])
-                        y1 = int(parts[1])
-                        x2 = int(parts[2])
-                        y2 = int(parts[3])
-                        self.drag(x1, y1, x2, y2)
-                        index+=4
-                    elif(len(parts) == 5):
-                        x1 = int(parts[0])
-                        y1 = int(parts[1])
-                        x2 = int(parts[2])
-                        y2 = int(parts[3])
-                        dur = int(parts[4])
-                        self.drag(x1, y1, x2, y2, dur)
-                        index+=5
-                    else:
-                        print("Invalid arguments passed.")
+                    if len(parts) == 4:
+                        self.drag(int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3]))
+                        index += 4
+                    elif len(parts) == 5:
+                        self.drag(int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3]), int(parts[4]))
+                        index += 5
                 elif cmd == "clckimg":
                     if len(parts) == 1:
-                        img_path = parts[index]
-                        self.clckimg(img=img_path)
-                        index+=2
+                        self.clckimg(img=parts[index])
+                        index += 2
                     elif len(parts) == 2:
-                        img_path = parts[index]
-                        btn = parts[index+1]
-                        self.clckimg(img=img_path, btn=btn)
-                        index+=3
+                        self.clckimg(img=parts[index], btn=parts[index+1])
+                        index += 3
                     elif len(parts) == 3:
-                        img_path = parts[index]
-                        btn = parts[index+1]
-                        conf = parts[index+2]
-                        self.clckimg(img=img_path, btn=btn, conf=conf)
-                        index+=4
-                    else:
-                        print("Invalid number of args.")
+                        self.clckimg(img=parts[index], btn=parts[index+1], conf=parts[index+2])
+                        index += 4
                 elif cmd == "play":
                     comp = parts[index]
                     if comp == "mouse":
                         self.play_mouse()
                     elif comp == "kb":
                         self.play_kb()
-                    index+=2
-                elif cmd == "repeat":
-                    print("Cannot nest repeats in man mode.")
+                    index += 2
                 else:
                     index += 1
-                # Stop the loop if necessary
-                if self.kb.check_key_pressed("esc"):
-                    break
+                    
+            if self.kb.check_key_pressed(stop_trigger):
+                break
 
-    # Call the record function from the Mouse
     def rec_mouse(self, output_file="txt/mouse_events.txt"):
         self.m.output_file = output_file
         self.m.record()
 
-    # Call the play function from the Mouse
     def play_mouse(self):
         self.m.play()
 
-    # Call the record function from KB
     def rec_kb(self, output_file="txt/kb_events.txt"):
         self.kb.output_file = output_file
         self.kb.record()
 
-    # Call the play function from KB
     def play_kb(self):
         self.kb.play()
 
@@ -319,7 +264,5 @@ class Bot:
         pag.screenshot(f"{self.imgs_path}\\screenshot{self.imgs_num}.png")
         self.imgs_num += 1
 
-
-    # toString for Model (Bot)
     def __str__(self) -> str:
         return f"Component: {self.comp_name}"
