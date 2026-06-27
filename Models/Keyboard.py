@@ -1,86 +1,128 @@
 import time
-import os
-import pyautogui as pag
-import keyboard as kb  # Swapping to kernel-level hardware hooks
-
-pag.FAILSAFE = True      # Enables the upper-left corner slam shutdown switch
+from pynput import keyboard
 
 class Keyboard:
-
-    hotkeys = []
-
-    # The KB constructor
-    def __init__(self, comp_name="KB", 
-            events=[], 
-            output_file="txt/kb_events.txt",
-            hotkeys = []) -> None:
+    def __init__(self, comp_name="KB"):
         self.comp_name = comp_name
-        self.events = events
-        self.output_file = output_file
-        self.hotkeys = hotkeys
+        self.events = []
+        self.controller = keyboard.Controller()
+        self.stop_requested = False
+        self.listener = None
 
-    # Press and release a given btn
+    # --- 🚀 RESTORED GENERATION FUNCTIONS (Thread-Safe via pynput) ---
+
     def press(self, btn: str):
-        time.sleep(0.1)
-        kb.press(btn)
-        kb.release(btn)
+        """Press and release a single key instantly."""
+        time.sleep(0.05)
+        # Handle special layout keys (like enter, space, esc) or alphanumeric characters
+        key = getattr(keyboard.Key, btn, btn)
+        try:
+            self.controller.press(key)
+            time.sleep(0.01)
+            self.controller.release(key)
+        except Exception as e:
+            print(f"[KB ERROR] Failed to press '{btn}': {e}")
 
-    # Holds a given btn
     def hld(self, btn: str):
-        kb.press(btn)
+        """Hold a key down physically until rel() is explicitly called."""
+        key = getattr(keyboard.Key, btn, btn)
+        try:
+            self.controller.press(key)
+        except Exception as e:
+            print(f"[KB ERROR] Failed to hold '{btn}': {e}")
 
-    # Releases a given btn
     def rel(self, btn: str):
-        kb.release(btn)
+        """Release a key that was being held down."""
+        key = getattr(keyboard.Key, btn, btn)
+        try:
+            self.controller.release(key)
+        except Exception as e:
+            print(f"[KB ERROR] Failed to release '{btn}': {e}")
 
-    # Press and release a sequence of keys/btns
-    def wrt(self, text: str, d: int = 0.1):
-        time.sleep(1)
-        kb.write(text, delay=d)
+    def wrt(self, text: str, d: float = 0.2):
+        """Types out a string of text character by character with a minor delay."""
+        time.sleep(0.5)  # Yield gap before typing begins
+        # Replace underscores with spaces if your text file formatting layout uses them
+        processed_text = text.replace("_", " ")
+        for char in processed_text:
+            try:
+                self.controller.type(char)
+                time.sleep(d)
+            except Exception as e:
+                print(f"[KB ERROR] Typestream character drop '{char}': {e}")
 
-    # Clear the KB file contents
-    def clear_file(self):
-        if os.path.isfile(self.output_file):
-            open(self.output_file, 'w').close()
 
-    # Write to the output file
-    def write_to_file(self):
-        with open(self.output_file, 'w') as f:
-            for evs in self.events:
-                f.write(f"{evs}\n")
+    # --- 🛠️ BACKWARD COMPATIBILITY & MONITOR HANDLES ---
 
-    # Stop recording the keyboard events (Updated to accept dynamic stop key)
-    def stop_recording(self, hook_ref, stop_trigger="esc"):
-        # Checks the chosen custom stop trigger key dynamically instead of 'esc' string literal
-        while not kb.is_pressed(stop_trigger):
-            time.sleep(0.05)
-        kb.unhook(hook_ref)
+    def start_interruption_monitor(self, stop_trigger="esc"):
+        """Non-blocking background monitor layer used by the controller worker."""
+        self.stop_requested = False
+        
+        def on_press(key):
+            try:
+                key_name = key.char
+            except AttributeError:
+                key_name = key.name
 
-    # Record the keyboard events (Updated to accept dynamic stop key)
+            if key_name == stop_trigger:
+                print(f"\n[STOP] Emergency stop trigger '{stop_trigger.upper()}' caught.")
+                self.stop_requested = True
+                return False
+
+        self.stop_interruption_monitor() # Clear any dangling hooks
+        self.listener = keyboard.Listener(on_press=on_press)
+        self.listener.start()
+
+    def stop_interruption_monitor(self):
+        if self.listener and self.listener.running:
+            self.listener.stop()
+        self.listener = None
+        self.stop_requested = False
+
+    def check_key_pressed(self, key: str = None):
+        """Fallback status checker interface allowing legacy loops to tick safely."""
+        return self.stop_requested
+
+
+    # --- Pynput Record & Playback (Your Original Code) ---
     def record(self, stop_trigger="esc"):
         self.events = []
-        self.clear_file()
-        
-        print(f"Recording started. Press '{stop_trigger.upper()}' to stop...")
-        hook_ref = kb.hook(self.events.append)
-        
-        # Pass the dynamic key to the poll loop
-        self.stop_recording(hook_ref, stop_trigger)
-        
-        print("Recording finished.")
-        self.write_to_file()
+        print(f"Recording keyboard. Press '{stop_trigger.upper()}' to stop...")
 
-    # Play the keyboard events
+        def on_press(key):
+            try: key_name = key.char
+            except AttributeError: key_name = key.name
+
+            if key_name == stop_trigger:
+                return False
+            self.events.append(('hld', key, time.time()))
+
+        def on_release(key):
+            try: key_name = key.char
+            except AttributeError: key_name = key.name
+
+            if key_name == stop_trigger:
+                return False
+            self.events.append(('rel', key, time.time()))
+
+        with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+            listener.join()
+        
+        print("Keyboard recording finished.")
+
     def play(self):
-        time.sleep(1)
-        kb.play(self.events)
+        if not self.events:
+            print("No keyboard events recorded to play.")
+            return
 
-    # Check if a key is pressed (PERFECT AS IS - Handles variables cleanly!)
-    def check_key_pressed(self, key: str):
-        if kb.is_pressed(key):
-            return True
-        return False
+        print("Playing back keyboard macro...")
+        last_time = self.events[0][-1]
 
-    # toString of KB
-    def __str__(self) -> str:
-         return f"\nComponent: {self.comp_name}\nAdded hotkeys:{self.hotkeys}"
+        for action, key, timestamp in self.events:
+            time.sleep(max(0, timestamp - last_time))
+            last_time = timestamp
+
+            if action == 'hld':
+                self.controller.press(key)
+            elif action == 'rel':
+                self.controller.release(key)
