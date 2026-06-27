@@ -261,7 +261,8 @@ class Bot:
     # Takes a screenshot and saves it to imgs folder
     def take_shot(self, delay=0.5):
         time.sleep(delay)
-        pag.screenshot(f"{self.imgs_path}\\screenshot{self.imgs_num}.png")
+        shot_name = f"screenshot{self.imgs_num}.png"
+        pag.screenshot(os.path.join(self.imgs_path, shot_name))
         self.imgs_num += 1
 
     def __str__(self) -> str:
