@@ -1,3 +1,4 @@
+# No longer used
 # import os
 # import sys
 # # Add the path of the Models directory to the system path
@@ -235,6 +236,8 @@
 #     for i in range(reps):
 #         bot.play_kb()
 
+
+# GUI
 # import tkinter as tk
 
 # class AppUI():
