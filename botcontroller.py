@@ -5,6 +5,8 @@ import time
 from screeninfo import get_monitors
 from Models.Bot import Bot
 import pyautogui as pag
+import platform
+import os
 
 monitor = get_monitors()[0]
 width = monitor.width
@@ -12,6 +14,36 @@ height = monitor.height
 
 def get_screen_resolution():
     return f"x={width} y={height}"
+
+def print_platform_info():
+    os_name = platform.system()
+
+    print("=" * 50)
+    print(f"Detected OS: {os_name}")
+
+    if os_name == "Linux":
+        session = os.environ.get("XDG_SESSION_TYPE", "unknown")
+
+        if session.lower() == "x11":
+            print("[INFO] Linux X11 session detected.")
+            print("[INFO] Full mouse/keyboard automation should work normally.")
+
+        elif session.lower() == "wayland":
+            print("[WARNING] Linux Wayland session detected.")
+            print("[WARNING] Mouse, keyboard hooks, screenshots, or image recognition may be restricted.")
+
+        else:
+            print(f"[INFO] Linux session type: {session}")
+
+    elif os_name == "Windows":
+        print("[INFO] Windows detected.")
+        print("[INFO] Full mouse/keyboard automation should work normally.")
+
+    else:
+        print(f"[WARNING] Unrecognized OS: {os_name}")
+        print("[WARNING] Automation compatibility is unknown.")
+
+    print("=" * 50)
 
 bot = Bot()
 

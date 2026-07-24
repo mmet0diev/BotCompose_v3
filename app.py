@@ -23,6 +23,9 @@ class AppUI(QWidget):
         else:
             self.setFixedSize(750, 560)
 
+        # Print Platform Info
+        bc.print_platform_info()
+
         # Layout Setup
         grid = QGridLayout()
         grid.setSpacing(15)
