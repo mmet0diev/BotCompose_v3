@@ -1,115 +1,73 @@
 import time
-import os
-import pyautogui as pag
-# Move the mouse quickly to hit an edge of the screen to stop it
-pag.FAILSAFE = True      # Enables the upper-left corner slam shutdown switch
-# pag.PAUSE = 0.15          # Adds a mandatory 150ms processing pause after EVERY movement step
+from pynput import mouse
+import pyautogui as pag # Keep only for screenshots / image detection if needed
 
 class Mouse:
-
-    def __init__(self,
-            comp_name="Mouse",
-            events=[],
-            output_file="txt/mouse_events.txt") -> None:
+    def __init__(self, comp_name="Mouse"):
         self.comp_name = comp_name
-        self.events = events
-        self.output_file = output_file
-        self.pos = pag.position()
+        # Initialize the native thread-safe controller
+        self.controller = mouse.Controller()
 
-    # Get mouse position
     def getPos(self):
-        self.pos = pag.position()
+        # Thread-safe position retrieval
+        self.pos = self.controller.position
         return f"Mouse coordinates: {self.pos}"
 
-    # Move mouse
     def mv(self, x: int, y: int, dur=0):
-        time.sleep(0.1)
-        pag.moveTo(x, y, duration=dur)
+        # Thread-safe absolute movement
+        time.sleep(0.05) # Tiny buffer for system stability
+        self.controller.position = (int(x), int(y))
 
-    # Click
     def clck(self, btn: str):
-        time.sleep(0.2)
-        if btn == "l":
-            pag.click()
-        elif btn == "r":
-            pag.click(button="right")
-        elif btn == "m":
-            pag.click(button="middle")
-        else:
-            print("Invalid mouse btn.")
-
-    # Move + click
-    def mvclck(self, x: int, y: int, btn: str):
-        time.sleep(0.2)
-        pag.moveTo(x, y, duration=0)
         time.sleep(0.1)
+        btn_map = {
+            "l": mouse.Button.left,
+            "r": mouse.Button.right,
+            "m": mouse.Button.middle
+        }
+        target_btn = btn_map.get(btn, mouse.Button.left)
+        self.controller.click(target_btn, 1)
 
-        if btn == "l":
-            pag.click()
-        elif btn == "r":
-            pag.click(button="right")
-        elif btn == "m":
-            pag.click(button="middle")
-        else:
-            print("Unknown mouse btn.")
+    def mvclck(self, x: int, y: int, btn: str):
+        self.mv(x, y)
+        time.sleep(0.1)
+        self.clck(btn)
 
-    # Scroll
     def scroll(self, z: int):
-        time.sleep(0.2)
-        pag.scroll(z)
+        time.sleep(0.1)
+        # pynput scroll takes (dx, dy). dy positive is up, negative is down
+        self.controller.scroll(0, int(z))
 
-    # Hold button
     def hld(self, btn: str):
-        time.sleep(0.2)
-        btn_map = {"l": "left", "r": "right", "m": "middle"}
-        pag.mouseDown(button=btn_map.get(btn, "left"))
+        btn_map = {"l": mouse.Button.left, "r": mouse.Button.right, "m": mouse.Button.middle}
+        self.controller.press(btn_map.get(btn, mouse.Button.left))
 
-    # Release button
     def rel(self, btn: str):
-        btn_map = {"l": "left", "r": "right", "m": "middle"}
-        pag.mouseUp(button=btn_map.get(btn, "left"))
+        btn_map = {"l": mouse.Button.left, "r": mouse.Button.right, "m": mouse.Button.middle}
+        self.controller.release(btn_map.get(btn, mouse.Button.left))
 
-    # Drag
     def drag(self, x1, y1, x2, y2, dur=1):
-        time.sleep(0.5)
-        pag.moveTo(x1, y1)
-        pag.dragTo(x2, y2, duration=dur)
+        # Quick thread-safe drag implementation
+        self.mv(x1, y1)
+        time.sleep(0.1)
+        self.hld("l")
+        time.sleep(0.1)
+        self.mv(x2, y2)
+        time.sleep(0.1)
+        self.rel("l")
 
-    # Click image
     def clck_img(self, img: str, btn: str="l", conf=0.6):
+        # PyAutoGUI image location is fine as it only reads data rather than pushing inputs
         time.sleep(0.2)
         try:
             img_location = pag.locateOnScreen(img, confidence=conf)
             if img_location is not None:
                 img_center = pag.center(img_location)
-                print(img_center)
                 self.mvclck(img_center[0], img_center[1], btn)
             else:
                 print("Image not found.")
         except Exception as e:
             print(f"Exception caught:\n {e}")
-
-    # File ops
-    def write_to_file(self):
-        if os.path.isfile(self.output_file):
-            with open(self.output_file, 'w') as f:
-                for evs in self.events:
-                    f.write(f"{evs}\n")
-
-    def clear_file(self):
-        open(self.output_file, 'w').close()
-
-    # Stop recording (ESC)
-    def stop_recording(self):
-        while not pag.keyDown('esc'):
-            time.sleep(0.05)
-
-    # ❗ Removed record/play (pyautogui cannot replace these)
-    def record(self):
-        print("Recording not supported with pyautogui.")
-
-    def play(self):
-        print("Playback not supported with pyautogui.")
 
     def __str__(self) -> str:
         return f"Component: {self.comp_name}"
