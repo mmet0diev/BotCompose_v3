@@ -73,8 +73,11 @@ class OutputRedirector:
         self.signals = signals
 
     def write(self, text):
-        self.original_stream.write(text)  # Keeps printing to your IDE terminal
-        self.signals.text_written.emit(text)  # Sends it straight to the PyQt GUI widget
+        if self.original_stream is not None:
+            self.original_stream.write(text)
+
+        self.signals.text_written.emit(text)
 
     def flush(self):
-        self.original_stream.flush()
+        if self.original_stream is not None:
+            self.original_stream.flush()
