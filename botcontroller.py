@@ -45,10 +45,40 @@ class ScriptWorker(QThread):
                         break
                     
                     if clean_line.startswith("repeat"):
+                        # Expand the following n lines and emit them reps times
                         cmds = clean_line.split(" ")
                         reps = int(cmds[1])
                         next_lines = int(cmds[2])
-                        bot.repeat_lines(f=f, reps=reps, n_lines=next_lines, stop_trigger=stop_key)
+
+                        # Read the next `next_lines` lines from the file into a buffer
+                        buffered = []
+                        for _ in range(next_lines):
+                            try:
+                                next_line = next(f)
+                            except StopIteration:
+                                break
+                            nl = next_line.strip()
+                            if not nl or nl.startswith("#"):
+                                continue
+                            buffered.append(nl)
+
+                        # Replay buffer reps times, emitting each command to main thread
+                        for _ in range(reps):
+                            if bot.kb.check_key_pressed(stop_key):
+                                self.status_signal.emit("Execution stopped by user.")
+                                break
+                            for bline in buffered:
+                                parts = bline.split(" ")
+                                func = parts[0]
+                                args = parts[1:]
+                                self.command_signal.emit(func, args)
+
+                                if func == "sleep":
+                                    seconds = float(args[0]) if args else 1.0
+                                    time.sleep(seconds)
+                                else:
+                                    time.sleep(0.02)
+
                         continue
 
                     command = clean_line.split(" ")

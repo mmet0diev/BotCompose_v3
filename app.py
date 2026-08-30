@@ -128,9 +128,22 @@ class AppUI(QWidget):
                     if len(args) == 0: bc.bot.take_shot()
                     elif len(args) == 1: bc.bot.take_shot(delay=float(args[0]))
                 case "drag":
-                    bc.bot.drag(int(args[0]), int(args[1]), int(args[2]), int(args[3]))
+                    # Execute hardware drag directly on the Mouse controller
+                    bc.bot.m.drag(int(args[0]), int(args[1]), int(args[2]), int(args[3]))
                 case "clckimg":
-                    bc.bot.clckimg(args[0])
+                    # Support: clckimg <img> [btn] [conf]
+                    if len(args) == 0:
+                        print("[RUNTIME ERROR] clckimg requires at least an image path")
+                    elif len(args) == 1:
+                        bc.bot.m.clck_img(args[0])
+                    elif len(args) == 2:
+                        bc.bot.m.clck_img(args[0], btn=args[1])
+                    else:
+                        try:
+                            conf = float(args[2])
+                        except Exception:
+                            conf = 0.6
+                        bc.bot.m.clck_img(args[0], btn=args[1], conf=conf)
                 case _:
                     pass
         except Exception as e:
