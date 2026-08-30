@@ -1,11 +1,19 @@
 import time
-from pynput import keyboard
+import pyautogui as pag
+
+# Try to import pynput.keyboard; if unavailable, fall back to pyautogui-based implementation
+USE_PYNPUT_KB = True
+try:
+    from pynput import keyboard
+except Exception:
+    keyboard = None
+    USE_PYNPUT_KB = False
 
 class Keyboard:
     def __init__(self, comp_name="KB"):
         self.comp_name = comp_name
         self.events = []
-        self.controller = keyboard.Controller()
+        self.controller = keyboard.Controller() if USE_PYNPUT_KB else None
         self.stop_requested = False
         self.listener = None
 
@@ -15,27 +23,37 @@ class Keyboard:
         """Press and release a single key instantly."""
         time.sleep(0.05)
         # Handle special layout keys (like enter, space, esc) or alphanumeric characters
-        key = getattr(keyboard.Key, btn, btn)
         try:
-            self.controller.press(key)
-            time.sleep(0.01)
-            self.controller.release(key)
+            if USE_PYNPUT_KB and self.controller is not None:
+                key = getattr(keyboard.Key, btn, btn)
+                self.controller.press(key)
+                time.sleep(0.01)
+                self.controller.release(key)
+            else:
+                # pyautogui handles many key names as strings
+                pag.press(btn)
         except Exception as e:
             print(f"[KB ERROR] Failed to press '{btn}': {e}")
 
     def hld(self, btn: str):
         """Hold a key down physically until rel() is explicitly called."""
-        key = getattr(keyboard.Key, btn, btn)
         try:
-            self.controller.press(key)
+            if USE_PYNPUT_KB and self.controller is not None:
+                key = getattr(keyboard.Key, btn, btn)
+                self.controller.press(key)
+            else:
+                pag.keyDown(btn)
         except Exception as e:
             print(f"[KB ERROR] Failed to hold '{btn}': {e}")
 
     def rel(self, btn: str):
         """Release a key that was being held down."""
-        key = getattr(keyboard.Key, btn, btn)
         try:
-            self.controller.release(key)
+            if USE_PYNPUT_KB and self.controller is not None:
+                key = getattr(keyboard.Key, btn, btn)
+                self.controller.release(key)
+            else:
+                pag.keyUp(btn)
         except Exception as e:
             print(f"[KB ERROR] Failed to release '{btn}': {e}")
 
@@ -44,12 +62,18 @@ class Keyboard:
         time.sleep(0.5)  # Yield gap before typing begins
         # Replace underscores with spaces if your text file formatting layout uses them
         processed_text = text.replace("_", " ")
-        for char in processed_text:
-            try:
-                self.controller.type(char)
-                time.sleep(d)
-            except Exception as e:
-                print(f"[KB ERROR] Typestream character drop '{char}': {e}")
+        try:
+            if USE_PYNPUT_KB and self.controller is not None:
+                for char in processed_text:
+                    self.controller.type(char)
+                    time.sleep(d)
+            else:
+                # pyautogui.typewrite will type the whole string; add per-char delay
+                for char in processed_text:
+                    pag.typewrite(char)
+                    time.sleep(d)
+        except Exception as e:
+            print(f"[KB ERROR] Typestream character drop: {e}")
 
 
     # --- 🛠️ BACKWARD COMPATIBILITY & MONITOR HANDLES ---
@@ -69,9 +93,12 @@ class Keyboard:
                 self.stop_requested = True
                 return False
 
+        # If pynput is available, use the listener. Otherwise the stop flag
+        # needs to be managed externally (e.g., UI button) or left as-is.
         self.stop_interruption_monitor() # Clear any dangling hooks
-        self.listener = keyboard.Listener(on_press=on_press)
-        self.listener.start()
+        if USE_PYNPUT_KB and keyboard is not None:
+            self.listener = keyboard.Listener(on_press=on_press)
+            self.listener.start()
 
     def stop_interruption_monitor(self):
         if self.listener and self.listener.running:
