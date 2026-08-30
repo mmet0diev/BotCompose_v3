@@ -65,9 +65,9 @@ class Mouse:
                 img_center = pag.center(img_location)
                 self.mvclck(img_center[0], img_center[1], btn)
             else:
-                print("Image not found.")
+                print("image not detected")
         except Exception as e:
-            print(f"Exception caught:\n {e}")
+            print(f"[ERROR] Image detection failed: {e}")
 
     def __str__(self) -> str:
         return f"Component: {self.comp_name}"
