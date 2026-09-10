@@ -1,2 +1,2 @@
 @echo off
-py main.py
+py app.py
