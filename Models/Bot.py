@@ -86,39 +86,88 @@ class Bot:
 
     # Manual mode repeat
     def repeat_man(self, command: list, reps: int = 2, stop_trigger="esc"):
+        """Repeat a single manual command token stream directly on the hardware layer.
+
+        Manual UI syntax is fed as a flat token list such as:
+            ["clck", "l"] for the example "repeat 10 clck l".
+        """
+        if not command:
+            return
+
         time.sleep(1)
-        parts = command[1:]
-        for i in range(reps):
-            index = 0
+        for _ in range(reps):
             if self.kb.check_key_pressed(stop_trigger):
                 print(f"[STOP] Manual loop sequence interrupted via key '{stop_trigger.upper()}'.")
                 break
-                
-            while index < len(parts):
+
+            index = 0
+            while index < len(command):
                 cmd = command[index]
                 if cmd == "mv":
-                    self.mv(float(parts[index+1]), float(parts[index+2]))
+                    if index + 2 >= len(command):
+                        break
+                    self.m.mv(float(command[index + 1]), float(command[index + 2]))
                     index += 3
                 elif cmd == "clck":
-                    self.clck(parts[index+1])
+                    if index + 1 >= len(command):
+                        break
+                    self.m.clck(command[index + 1])
                     index += 2
                 elif cmd == "mvclck":
-                    self.mvclck(float(parts[index+1]), float(parts[index+2]), parts[index+3])
+                    if index + 3 >= len(command):
+                        break
+                    self.m.mvclck(float(command[index + 1]), float(command[index + 2]), command[index + 3])
                     index += 4
                 elif cmd == "scroll":
-                    self.scroll(int(parts[index+1]))
+                    if index + 1 >= len(command):
+                        break
+                    self.m.scroll(int(command[index + 1]))
                     index += 2
                 elif cmd == "press":
-                    self.press(parts[index+1])
+                    if index + 1 >= len(command):
+                        break
+                    self.kb.press(command[index + 1])
                     index += 2
                 elif cmd == "hld":
-                    self._send_to_queue(f"hld {parts[index+1]} {parts[index+2]}")
+                    if index + 2 >= len(command):
+                        break
+                    target, btn = command[index + 1], command[index + 2]
+                    if target == "mouse":
+                        self.m.hld(btn)
+                    elif target == "kb":
+                        self.kb.hld(btn)
+                    index += 3
+                elif cmd == "rel":
+                    if index + 2 >= len(command):
+                        break
+                    target, btn = command[index + 1], command[index + 2]
+                    if target == "mouse":
+                        self.m.rel(btn)
+                    elif target == "kb":
+                        self.kb.rel(btn)
                     index += 3
                 elif cmd == "drag":
-                    self.drag(int(parts[index+1]), int(parts[index+2]), int(parts[index+3]), int(parts[index+4]))
+                    if index + 4 >= len(command):
+                        break
+                    self.m.drag(int(command[index + 1]), int(command[index + 2]), int(command[index + 3]), int(command[index + 4]))
                     index += 5
                 elif cmd == "clckimg":
-                    self.clckimg(img=parts[index+1])
+                    if index + 1 >= len(command):
+                        break
+                    img = command[index + 1]
+                    btn = command[index + 2] if index + 2 < len(command) else "l"
+                    conf = float(command[index + 3]) if index + 3 < len(command) else 0.6
+                    self.m.clck_img(img, btn=btn, conf=conf)
+                    index += 2
+                elif cmd == "wrt":
+                    if index + 1 >= len(command):
+                        break
+                    self.kb.wrt(" ".join(command[index + 1:]))
+                    index = len(command)
+                elif cmd == "sleep":
+                    if index + 1 >= len(command):
+                        break
+                    time.sleep(float(command[index + 1]))
                     index += 2
                 else:
                     index += 1

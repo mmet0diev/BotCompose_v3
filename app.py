@@ -144,6 +144,17 @@ class AppUI(QWidget):
                         except Exception:
                             conf = 0.6
                         bc.bot.m.clck_img(args[0], btn=args[1], conf=conf)
+                case "repeat":
+                    # Manual UI syntax: repeat <reps> <func> <args...>
+                    if len(args) < 2:
+                        print("[RUNTIME ERROR] repeat requires a count followed by a command token stream")
+                    else:
+                        try:
+                            reps = int(args[0])
+                            command = args[1:]
+                            bc.bot.repeat_man(command, reps=reps)
+                        except Exception as exc:
+                            print(f"[RUNTIME ERROR] Failed repeating manual instruction: {exc}")
                 case _:
                     pass
         except Exception as e:
