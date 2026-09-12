@@ -4,7 +4,16 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import botcontroller as bc  
 from terminal import LogTerminal  
-from pynput import keyboard as pynput_kb
+
+try:
+    from pynput import keyboard as pynput_kb
+except Exception:
+    pynput_kb = None
+
+try:
+    import keyboard as keyboard_pkg
+except Exception:
+    keyboard_pkg = None
 
 class AppUI(QWidget):
     
@@ -84,13 +93,22 @@ class AppUI(QWidget):
         self.worker.start()
 
     def execute_manual_direct(self):
-        """Executes single-shot manual actions immediately on the main thread context."""
+        """Executes manual actions immediately on the main thread context.
+
+        Manual UI execution should expose the same stop-key monitor as the
+        file worker so repeat loops in the manual command path can observe the
+        stop flag and exit cleanly instead of needing repeated key presses.
+        """
         clean_cmd = self.man_input_field.text().strip()
         if not clean_cmd or clean_cmd.startswith("#"):
             return
-        
-        cmds = clean_cmd.split(" ")
-        self.process_hardware_action(cmds[0], cmds[1:])
+
+        bc.bot.kb.start_interruption_monitor(bc.stop_key)
+        try:
+            cmds = clean_cmd.split(" ")
+            self.process_hardware_action(cmds[0], cmds[1:])
+        finally:
+            bc.bot.kb.stop_interruption_monitor()
 
     def handle_system_status(self, status: str):
         if status == "EOF" or "stopped" in status:
@@ -167,16 +185,33 @@ class AppUI(QWidget):
 
         def on_press(key):
             nonlocal listener
-            try: key_name = key.char
-            except AttributeError: key_name = key.name
-            
+            try:
+                key_name = getattr(key, "char", None)
+                if key_name is None:
+                    key_name = key.name
+            except AttributeError:
+                key_name = getattr(key, "name", str(key))
+
             bc.stop_key = key_name
             self.set_stop_btn.setText(f"Stop Key: {key_name.upper()}")
             self.set_stop_btn.setEnabled(True)
-            if listener is not None: listener.stop()
 
-        listener = pynput_kb.Listener(on_press=on_press)
-        listener.start()
+            # Stop the active listener from the appropriate backend.
+            if pynput_kb is not None and listener is not None:
+                listener.stop()
+            elif keyboard_pkg is not None:
+                keyboard_pkg.unhook_all()
+
+        if pynput_kb is not None:
+            listener = pynput_kb.Listener(on_press=on_press)
+            listener.start()
+        elif keyboard_pkg is not None:
+            # Fallback backend from the existing requirements file.
+            keyboard_pkg.hook(on_press=on_press)
+        else:
+            self.set_stop_btn.setText("Stop Key: ESC")
+            self.set_stop_btn.setEnabled(True)
+            print("[WARN] No keyboard listener backend installed; using ESC as default stop key.")
 
 
 def run():

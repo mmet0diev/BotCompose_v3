@@ -101,7 +101,13 @@ class Bot:
                 break
 
             index = 0
+            stopped = False
             while index < len(command):
+                if self.kb.check_key_pressed(stop_trigger):
+                    print(f"[STOP] Manual loop sequence interrupted via key '{stop_trigger.upper()}'.")
+                    stopped = True
+                    break
+
                 cmd = command[index]
                 if cmd == "mv":
                     if index + 2 >= len(command):
@@ -171,6 +177,9 @@ class Bot:
                     index += 2
                 else:
                     index += 1
+
+            if stopped:
+                break
             time.sleep(0.05)
 
     def rec_mouse(self, output_file="txt/mouse_events.txt"):

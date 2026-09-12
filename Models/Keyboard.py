@@ -78,24 +78,50 @@ class Keyboard:
 
     # --- 🛠️ BACKWARD COMPATIBILITY & MONITOR HANDLES ---
 
-    def start_interruption_monitor(self, stop_trigger="esc"):
-        """Non-blocking background monitor layer used by the controller worker."""
-        self.stop_requested = False
-        
-        def on_press(key):
-            try:
-                key_name = key.char
-            except AttributeError:
-                key_name = key.name
+    def _normalize_key_name(self, key):
+        """Return the symbolic keyboard event name for pynput special keys.
 
+        For a special key like Esc, pynput often surfaces `Key.esc` with
+        `key.name == 'esc'` and `key.char == None`. Checking `char` first is
+        therefore wrong for the stop hook; we need to fall through safely.
+        """
+        try:
+            char = key.char
+        except Exception:
+            char = None
+
+        if isinstance(char, str) and char.strip():
+            return char.lower()
+
+        try:
+            name = key.name
+        except Exception:
+            name = str(key)
+
+        if isinstance(name, str):
+            return name.lower()
+
+        return str(name).lower()
+
+    def start_interruption_monitor(self, stop_trigger="esc"):
+        """Non-blocking background monitor layer used by the controller worker.
+
+        The callback must normalize both printable keys and special keys such
+        as escape, so the stop flag is raised once rather than being silently
+        missed by the keyboard listener.
+        """
+        self.stop_requested = False
+        stop_trigger = str(stop_trigger or "esc").lower()
+
+        def on_press(key):
+            key_name = self._normalize_key_name(key)
             if key_name == stop_trigger:
                 print(f"\n[STOP] Emergency stop trigger '{stop_trigger.upper()}' caught.")
                 self.stop_requested = True
-                return False
 
         # If pynput is available, use the listener. Otherwise the stop flag
         # needs to be managed externally (e.g., UI button) or left as-is.
-        self.stop_interruption_monitor() # Clear any dangling hooks
+        self.stop_interruption_monitor()  # Clear any dangling hooks
         if USE_PYNPUT_KB and keyboard is not None:
             self.listener = keyboard.Listener(on_press=on_press)
             self.listener.start()
