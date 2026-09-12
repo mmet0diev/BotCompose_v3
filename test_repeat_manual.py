@@ -42,6 +42,35 @@ class RepeatManualBotTests(unittest.TestCase):
 
         self.assertEqual(calls, [("clck", "l")])
 
+    def test_start_interruption_monitor_is_idempotent_for_repeated_esc_events(self):
+        kb = Keyboard()
+        captured = {}
+
+        class FakeKey:
+            name = "esc"
+            char = None
+
+        class FakeListener:
+            def __init__(self, on_press=None, on_release=None):
+                captured["on_press"] = on_press
+                self.running = True
+
+            def start(self):
+                self.running = True
+
+            def stop(self):
+                self.running = False
+
+        with patch("Models.Keyboard.USE_PYNPUT_KB", True), patch("Models.Keyboard.keyboard") as fake_keyboard:
+            fake_keyboard.Listener = FakeListener
+            kb.start_interruption_monitor("esc")
+
+            captured["on_press"](FakeKey())
+            captured["on_press"](FakeKey())
+            captured["on_press"](FakeKey())
+
+            self.assertTrue(kb.stop_requested)
+
     def test_start_interruption_monitor_catches_stop_key_without_stopping_listener(self):
         kb = Keyboard()
         captured = {}

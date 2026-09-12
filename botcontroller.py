@@ -62,12 +62,20 @@ class ScriptWorker(QThread):
                                 continue
                             buffered.append(nl)
 
+                        stopped = False
                         # Replay buffer reps times, emitting each command to main thread
                         for _ in range(reps):
                             if bot.kb.check_key_pressed(stop_key):
                                 self.status_signal.emit("Execution stopped by user.")
+                                stopped = True
                                 break
+
                             for bline in buffered:
+                                if bot.kb.check_key_pressed(stop_key):
+                                    self.status_signal.emit("Execution stopped by user.")
+                                    stopped = True
+                                    break
+
                                 parts = bline.split(" ")
                                 func = parts[0]
                                 args = parts[1:]
@@ -75,11 +83,24 @@ class ScriptWorker(QThread):
 
                                 if func == "sleep":
                                     seconds = float(args[0]) if args else 1.0
-                                    time.sleep(seconds)
+                                    if bot.kb.sleep_interruptible(seconds):
+                                        self.status_signal.emit("Execution stopped by user.")
+                                        stopped = True
+                                        break
                                 else:
                                     time.sleep(0.02)
 
+                                if stopped:
+                                    break
+
+                            if stopped:
+                                break
+
                         continue
+
+                    if bot.kb.check_key_pressed(stop_key):
+                        self.status_signal.emit("Execution stopped by user.")
+                        break
 
                     command = clean_line.split(" ")
                     func = command[0]
@@ -90,7 +111,9 @@ class ScriptWorker(QThread):
 
                     if func == "sleep":
                         seconds = float(args[0]) if args else 1.0
-                        time.sleep(seconds)
+                        if bot.kb.sleep_interruptible(seconds):
+                            self.status_signal.emit("Execution stopped by user.")
+                            break
                     else:
                         time.sleep(0.02) # Yield execution gap
                         

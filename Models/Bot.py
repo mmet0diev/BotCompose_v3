@@ -77,10 +77,17 @@ class Bot:
                 break
                 
             for func, args in commands:
+                if self.kb.check_key_pressed(stop_trigger):
+                    print(f"[STOP] Loop sequence interrupted via key '{stop_trigger.upper()}'.")
+                    break
+
                 arg_str = " ".join(map(str, args))
                 self._send_to_queue(f"{func} {arg_str}")
                 if func == "sleep":
-                    time.sleep(float(args[0]))
+                    seconds = float(args[0]) if args else 1.0
+                    if self.kb.sleep_interruptible(seconds):
+                        print(f"[STOP] Loop sequence interrupted via key '{stop_trigger.upper()}'.")
+                        break
                 else:
                     time.sleep(0.02)
 
@@ -173,7 +180,11 @@ class Bot:
                 elif cmd == "sleep":
                     if index + 1 >= len(command):
                         break
-                    time.sleep(float(command[index + 1]))
+                    seconds = float(command[index + 1])
+                    if self.kb.sleep_interruptible(seconds):
+                        print(f"[STOP] Manual loop sequence interrupted via key '{stop_trigger.upper()}'.")
+                        stopped = True
+                        break
                     index += 2
                 else:
                     index += 1

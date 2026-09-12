@@ -115,7 +115,7 @@ class Keyboard:
 
         def on_press(key):
             key_name = self._normalize_key_name(key)
-            if key_name == stop_trigger:
+            if key_name == stop_trigger and not self.stop_requested:
                 print(f"\n[STOP] Emergency stop trigger '{stop_trigger.upper()}' caught.")
                 self.stop_requested = True
 
@@ -131,6 +131,22 @@ class Keyboard:
             self.listener.stop()
         self.listener = None
         self.stop_requested = False
+
+    def sleep_interruptible(self, seconds: float = 0.05, interval: float = 0.05):
+        """Sleep in short pollable slices so the stop flag can interrupt execution.
+
+        This prevents the regular `time.sleep(seconds)` call from becoming an
+        uninterruptible stall while the `esc` key is being watched through the
+        same `Keyboard` object instance.
+        """
+        remaining = max(0.0, float(seconds))
+        while remaining > 0:
+            if self.stop_requested:
+                return True
+            step = min(interval, remaining)
+            time.sleep(step)
+            remaining -= step
+        return False
 
     def check_key_pressed(self, key: str = None):
         """Fallback status checker interface allowing legacy loops to tick safely."""
